@@ -1,4 +1,5 @@
 // import 'underscore'
+const _ = require('underscore')
 
 const UP = 0
 const DOWN = 1
@@ -15,7 +16,7 @@ const exampleBoard = [
   1,2,1,1,1,1,1,1,
   0,1,2,1,1,2,1,1,
   1,1,1,2,2,2,1,1,
-  1,2,1,2,0,2,1,1,
+  1,2,1,2,1,2,1,1,
   1,1,2,2,2,1,2,2,
   1,2,1,1,1,1,0,2,
   1,2,1,1,1,2,2,2
@@ -186,13 +187,16 @@ const checkNeighbor = (board, position, direction) => {
 
 const validPosition = (position, validMoves) => {
   // console.log('Running')
-  for(i=0; i<validMoves.length; i++){
+  for(let i=0; i<validMoves.length; i++){
     if(position[0] === validMoves[i][0] && position[1] === validMoves[i][1]){
       return true
     }
   }
   return false
 }
+
+const positionToServerInt = (position) => (position[0]*8+position[1])
+
 
 const validMoves = (board, player) => {
   const opponent = player === 1 ? 2 : 1
@@ -224,5 +228,69 @@ const validMoves = (board, player) => {
   }
   return validMoves
 }
-console.log('validMoves 1', validMoves(parseBoard(exampleBoard), 1))
-console.log('validMoves 2', validMoves(parseBoard(exampleBoard), 2))
+
+
+// console.log('validMoves 1', validMoves(parseBoard(exampleBoard), 1))
+// console.log('validMoves 2', validMoves(parseBoard(exampleBoard), 2))
+// console.log('serverInt', positionToServerInt([7, 7]))
+
+// This heuristic takes a flat board
+const coinParityHeuristic = (board, maxPlayer, minPlayer) => {
+  const count = _.countBy(board, (position) => {
+    if(position === 1){
+      return 1
+    } else {
+      if(position === 2){
+        return 2
+      } else {
+        return 0
+      }
+    }
+  })
+  return 100 * (count[maxPlayer] - count[minPlayer]) / (count[maxPlayer] + count[minPlayer])
+}
+
+// console.log('coinParityHeuristic', coinParityHeuristic(exampleBoard, 1, 2))
+// console.log('coinParityHeuristic', coinParityHeuristic(exampleBoard, 2, 1))
+
+const mobilityHeuristic = (board, maxPlayer, minPlayer) => {
+  const maxPlayerPotentialMoves = validMoves(board, maxPlayer).length
+  const minPlayerPotentialMoves = validMoves(board, minPlayer).length
+  // console.log('maxPlayerPotentialMoves', maxPlayerPotentialMoves)
+  // console.log('minPlayerPotentialMoves', minPlayerPotentialMoves)
+  if(maxPlayerPotentialMoves + minPlayerPotentialMoves){
+    return 100 * (maxPlayerPotentialMoves - minPlayerPotentialMoves) / (maxPlayerPotentialMoves + minPlayerPotentialMoves)
+  } else {
+    return 0
+  }
+}
+
+// console.log('mobilityHeuristic 1', mobilityHeuristic(parseBoard(exampleBoard), 2, 1))
+
+
+const cornersHeuristic = (board, maxPlayer, minPlayer) => {
+  const corners = [[0,0], [0,7], [7,7], [7,0]]
+  let maxPlayerPotentialCorners = 0
+  let minPlayerPotentialCorners = 0
+  corners.map((corner) => {
+    if(board[corner[0]][corner[1]] === maxPlayer){
+      maxPlayerPotentialCorners = maxPlayerPotentialCorners + 1
+    } else {
+      if(board[corner[0]][corner[1]] === minPlayer){
+        minPlayerPotentialCorners = minPlayerPotentialCorners + 1
+      }
+    }
+  })
+
+  return 100 * (maxPlayerPotentialCorners - minPlayerPotentialCorners) / (maxPlayerPotentialCorners + minPlayerPotentialCorners)
+}
+
+// 60,000 boards in 2.04s ~ Approx 5 levels down (without coin stability)
+const parsedBoard = parseBoard(exampleBoard)
+for(let i=0; i<60000; i++){
+  coinParityHeuristic(exampleBoard, 1, 2)
+  mobilityHeuristic(parsedBoard, 2, 1)
+  cornersHeuristic(parsedBoard, 2, 1)
+}
+
+// console.log('cornersHeuristic', cornersHeuristic(parseBoard(exampleBoard), 2, 1))

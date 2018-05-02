@@ -1,6 +1,7 @@
 'use strict';
 
-require('underscore');
+// import 'underscore'
+var _ = require('underscore');
 
 var UP = 0;
 var DOWN = 1;
@@ -12,7 +13,7 @@ var DOWNRIGHT = 6;
 var DOWNLEFT = 7;
 var ALLDIRECTIONS = [UP, DOWN, LEFT, RIGHT, UPRIGHT, UPLEFT, DOWNRIGHT, DOWNLEFT];
 
-var exampleBoard = [2, 2, 2, 2, 2, 2, 2, 2, 1, 2, 1, 1, 1, 1, 1, 1, 0, 1, 2, 1, 1, 2, 1, 1, 1, 1, 1, 2, 2, 2, 1, 1, 1, 2, 1, 2, 2, 2, 1, 1, 1, 1, 2, 2, 2, 1, 2, 2, 1, 2, 1, 1, 1, 1, 0, 2, 1, 2, 1, 1, 1, 2, 2, 2];
+var exampleBoard = [2, 2, 2, 2, 2, 2, 2, 2, 1, 2, 1, 1, 1, 1, 1, 1, 0, 1, 2, 1, 1, 2, 1, 1, 1, 1, 1, 2, 2, 2, 1, 1, 1, 2, 1, 2, 0, 2, 1, 1, 1, 1, 2, 2, 2, 1, 2, 2, 1, 2, 1, 1, 1, 1, 0, 2, 1, 2, 1, 1, 1, 2, 2, 2];
 
 var oppositeDirection = function oppositeDirection(direction) {
   switch (direction) {
@@ -194,18 +195,58 @@ var checkNeighbor = function checkNeighbor(board, position, direction) {
   }
 };
 
-// console.log(parseBoard(exampleBoard))
-// console.log('checkNeighbor', checkNeighbor(parseBoard(exampleBoard), [7,7], UPLEFT))
-
-var unknownPosition = function unknownPosition(position, validMoves) {
-  validMoves.forEach(function (validMove) {
-    return true;
-  });
+var validPosition = function validPosition(position, validMoves) {
+  // console.log('Running')
+  for (var i = 0; i < validMoves.length; i++) {
+    if (position[0] === validMoves[i][0] && position[1] === validMoves[i][1]) {
+      return true;
+    }
+  }
+  return false;
 };
+
+var positionToServerInt = function positionToServerInt(position) {
+  return position[0] * 8 + position[1];
+};
+
+// coinsOfPlayer takes a flat board
+var coinsOfPlayer = function coinsOfPlayer(board, player) {
+  return _.countBy(board, function (position) {
+    if (position === 1) {
+      return 1;
+    } else {
+      if (position === 2) {
+        return 2;
+      } else {
+        return 0;
+      }
+    }
+  })[player];
+};
+
+console.log('Coins of player 1', coinsOfPlayer(exampleBoard, 1));
+console.log('Coins of player 2', coinsOfPlayer(exampleBoard, 2));
+
+var coinParityHeuristic = function coinParityHeuristic(board, maxPlayer, minPlayer) {
+  var count = _.countBy(board, function (position) {
+    if (position === 1) {
+      return 1;
+    } else {
+      if (position === 2) {
+        return 2;
+      } else {
+        return 0;
+      }
+    }
+  });
+  return 100 * (count[maxPlayer] - count[minPlayer]) / (count[maxPlayer] + count[minPlayer]);
+};
+
+console.log('coinParityHeuristic', coinParityHeuristic(exampleBoard, 1, 2));
 
 var validMoves = function validMoves(board, player) {
   var opponent = player === 1 ? 2 : 1;
-  var validMoves = new Set();
+  var validMoves = [];
   // Filter opponents coins with empty spaces next to it
 
   var _loop = function _loop(y) {
@@ -213,27 +254,19 @@ var validMoves = function validMoves(board, player) {
       // For filtered coins
       if (board[y][x] === opponent) {
         ALLDIRECTIONS.map(function (direction) {
-          console.log('position', [y, x], 'direction', direction, 'is', checkNeighbor(board, [y, x], direction));
-          if (unknownPosition(move([y, x], direction), validMoves)) {
-            // For empty space
-            if (checkNeighbor(board, [y, x], direction) == '0') {
-              // Check opposite end, if theres a player coin then add empty space to validMoves, else pass
-              // console.log('Empty!! Checking', [y, x], ' in direction', oppositeDirection(direction))
-              // console.log('Moving', [y, x], 'in direction', oppositeDirection(direction))
-              var tempPosition = move([y, x], oppositeDirection(direction));
-              // console.log('tempPosition', tempPosition)
-              // console.log('Test board', board[tempPosition[0]][tempPosition[1]])
-              while (tempPosition !== null) {
-                console.log('IN WHILE');
-                if (board[tempPosition[0]][tempPosition[1]] === player) {
-                  console.log('Adding', [y, x]);
-                  validMoves.add(move([y, x], direction));
-                  break;
-                }
-                tempPosition = move(tempPosition, oppositeDirection(direction));
-                // console.log('tempPosition after move', tempPosition)
+          // For empty space
+          if (checkNeighbor(board, [y, x], direction) == '0') {
+            // Check opposite end, if theres a player coin then add empty space to validMoves, else pass
+            var tempPosition = move([y, x], oppositeDirection(direction));
+            while (tempPosition !== null && board[tempPosition[0]][tempPosition[1]] !== 0) {
+              if (validPosition(move([y, x], direction), validMoves)) {
+                break;
               }
-              // console.log('New position', tempPosition)
+              if (board[tempPosition[0]][tempPosition[1]] === player) {
+                validMoves.push(move([y, x], direction));
+                break;
+              }
+              tempPosition = move(tempPosition, oppositeDirection(direction));
             }
           }
         });
@@ -250,5 +283,7 @@ var validMoves = function validMoves(board, player) {
   }
   return validMoves;
 };
+
 // console.log('validMoves 1', validMoves(parseBoard(exampleBoard), 1))
-console.log('validMoves 2', validMoves(parseBoard(exampleBoard), 2));
+// console.log('validMoves 2', validMoves(parseBoard(exampleBoard), 2))
+// console.log('serverInt', positionToServerInt([7, 7]))
