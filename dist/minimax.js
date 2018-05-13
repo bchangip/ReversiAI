@@ -1,5 +1,8 @@
 'use strict';
 
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
 // import 'underscore'
 var _ = require('underscore');
 
@@ -12,8 +15,27 @@ var UPLEFT = 5;
 var DOWNRIGHT = 6;
 var DOWNLEFT = 7;
 var ALLDIRECTIONS = [UP, DOWN, LEFT, RIGHT, UPRIGHT, UPLEFT, DOWNRIGHT, DOWNLEFT];
+var HALFDIRECTIONS = [UP, RIGHT, UPRIGHT, UPLEFT];
 
-var exampleBoard = [2, 2, 2, 2, 2, 2, 2, 2, 1, 2, 1, 1, 1, 1, 1, 1, 0, 1, 2, 1, 1, 2, 1, 1, 1, 1, 1, 2, 2, 2, 1, 1, 1, 2, 1, 2, 0, 2, 1, 1, 1, 1, 2, 2, 2, 1, 2, 2, 1, 2, 1, 1, 1, 1, 0, 2, 1, 2, 1, 1, 1, 2, 2, 2];
+var STABLE = 1;
+var SEMISTABLE = 0;
+var UNSTABLE = -1;
+
+var MAXIMIZER = 1;
+var MINIMIZER = 2;
+
+// const exampleBoard = [
+//   2,2,2,2,2,2,2,2,
+//   1,2,1,1,1,1,1,1,
+//   0,1,2,1,1,2,1,1,
+//   1,1,1,2,2,2,1,1,
+//   1,2,1,2,1,2,1,1,
+//   1,1,2,2,2,1,2,2,
+//   1,2,1,1,1,1,0,2,
+//   1,2,1,1,1,2,2,2
+// ]
+
+var exampleBoard = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 0, 0, 0, 0, 0, 0, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
 var oppositeDirection = function oppositeDirection(direction) {
   switch (direction) {
@@ -209,41 +231,6 @@ var positionToServerInt = function positionToServerInt(position) {
   return position[0] * 8 + position[1];
 };
 
-// coinsOfPlayer takes a flat board
-var coinsOfPlayer = function coinsOfPlayer(board, player) {
-  return _.countBy(board, function (position) {
-    if (position === 1) {
-      return 1;
-    } else {
-      if (position === 2) {
-        return 2;
-      } else {
-        return 0;
-      }
-    }
-  })[player];
-};
-
-console.log('Coins of player 1', coinsOfPlayer(exampleBoard, 1));
-console.log('Coins of player 2', coinsOfPlayer(exampleBoard, 2));
-
-var coinParityHeuristic = function coinParityHeuristic(board, maxPlayer, minPlayer) {
-  var count = _.countBy(board, function (position) {
-    if (position === 1) {
-      return 1;
-    } else {
-      if (position === 2) {
-        return 2;
-      } else {
-        return 0;
-      }
-    }
-  });
-  return 100 * (count[maxPlayer] - count[minPlayer]) / (count[maxPlayer] + count[minPlayer]);
-};
-
-console.log('coinParityHeuristic', coinParityHeuristic(exampleBoard, 1, 2));
-
 var validMoves = function validMoves(board, player) {
   var opponent = player === 1 ? 2 : 1;
   var validMoves = [];
@@ -281,9 +268,286 @@ var validMoves = function validMoves(board, player) {
   for (var y = 0; y < board.length; y++) {
     _loop(y);
   }
+  // console.log('board', board)
+  // console.log('player', player)
+  // console.log('validMoves', validMoves)
   return validMoves;
 };
 
 // console.log('validMoves 1', validMoves(parseBoard(exampleBoard), 1))
 // console.log('validMoves 2', validMoves(parseBoard(exampleBoard), 2))
 // console.log('serverInt', positionToServerInt([7, 7]))
+
+// This heuristic takes a flat board
+var coinParityHeuristic = function coinParityHeuristic(board, maxPlayer, minPlayer) {
+  var count = _.countBy(board, function (position) {
+    if (position === 1) {
+      return 1;
+    } else {
+      if (position === 2) {
+        return 2;
+      } else {
+        return 0;
+      }
+    }
+  });
+  if (count[maxPlayer] + count[minPlayer] != 0) {
+    return 100 * (count[maxPlayer] - count[minPlayer]) / (count[maxPlayer] + count[minPlayer]);
+  } else {
+    return 0;
+  }
+};
+
+// console.log('coinParityHeuristic 1', coinParityHeuristic(exampleBoard, 1, 2))
+// console.log('coinParityHeuristic', coinParityHeuristic(exampleBoard, 2, 1))
+
+var mobilityHeuristic = function mobilityHeuristic(board, maxPlayer, minPlayer) {
+  var maxPlayerPotentialMoves = validMoves(board, maxPlayer).length;
+  var minPlayerPotentialMoves = validMoves(board, minPlayer).length;
+  // console.log('maxPlayerPotentialMoves', maxPlayerPotentialMoves)
+  // console.log('minPlayerPotentialMoves', minPlayerPotentialMoves)
+  if (maxPlayerPotentialMoves + minPlayerPotentialMoves != 0) {
+    return 100 * (maxPlayerPotentialMoves - minPlayerPotentialMoves) / (maxPlayerPotentialMoves + minPlayerPotentialMoves);
+  } else {
+    return 0;
+  }
+};
+
+// console.log('mobilityHeuristic 1', mobilityHeuristic(parseBoard(exampleBoard), 1, 2))
+
+
+var cornersHeuristic = function cornersHeuristic(board, maxPlayer, minPlayer) {
+  var corners = [[0, 0], [0, 7], [7, 7], [7, 0]];
+  var maxPlayerPotentialCorners = 0;
+  var minPlayerPotentialCorners = 0;
+  corners.map(function (corner) {
+    if (board[corner[0]][corner[1]] == maxPlayer) {
+      maxPlayerPotentialCorners = maxPlayerPotentialCorners + 1;
+    } else {
+      if (board[corner[0]][corner[1]] == minPlayer) {
+        minPlayerPotentialCorners = minPlayerPotentialCorners + 1;
+      }
+    }
+  });
+
+  if (maxPlayerPotentialCorners + minPlayerPotentialCorners != 0) {
+    return 100 * (maxPlayerPotentialCorners - minPlayerPotentialCorners) / (maxPlayerPotentialCorners + minPlayerPotentialCorners);
+  } else {
+    return 0;
+  }
+};
+// console.log('cornersHeuristic 1', cornersHeuristic(parseBoard(exampleBoard), 1, 2))
+
+var stabilityHeuristic = function stabilityHeuristic(board, maxPlayer, minPlayer) {
+  // For every coin
+  // Check if stable
+  // stabilities = []
+  // For half directions
+  // firstBound = Go in direction until encounter a minPlayer coin or empty space or end-of-board
+  // secondBound = Go in opposite direction until encounter a minPlayer coin or empty space or end-of-board
+  // if((firstBound == minPlayer && secondBound == emptySpace) || (firstBound == empty && secondBound == minPlayer)){stabilities.push(UNSTABLE)}
+  // else if((firstBound === end-of-board) && (secondBound === end-of-board)){stabilities.push(STABLE)}
+  // else if((firstBound == minPlayer && secondBound == end-of-board) || (firstBound == end-of-board && secondBound == minPlayer)){stabilities.push(STABLE)}
+  // else if((firstBound == minPlayer && secondBound == minPlayer)){stabilities.push(STABLE)}
+  // else stabilities.push(SEMISTABLE)
+  // coinStability = min(stabilities)
+
+  var maxPlayerStability = 0;
+  var minPlayerStability = 0;
+
+  var _loop3 = function _loop3(y) {
+    var _loop4 = function _loop4(x) {
+      if (board[y][x] === maxPlayer) {
+        var stabilities = [];
+        HALFDIRECTIONS.map(function (direction) {
+          var firstBound = void 0;
+          var secondBound = void 0;
+          var firstBoundPosition = move([y, x], direction);
+          while (firstBoundPosition !== null && board[firstBoundPosition[0]][firstBoundPosition[1]] !== 0 && board[firstBoundPosition[0]][firstBoundPosition[1]] !== minPlayer) {
+            firstBoundPosition = move(firstBoundPosition, direction);
+          }
+          var secondBoundPosition = move([y, x], oppositeDirection(direction));
+          while (secondBoundPosition !== null && board[secondBoundPosition[0]][secondBoundPosition[1]] !== 0 && board[secondBoundPosition[0]][secondBoundPosition[1]] !== minPlayer) {
+            secondBoundPosition = move(secondBoundPosition, oppositeDirection(direction));
+          }
+
+          if (firstBoundPosition !== null && secondBoundPosition !== null) {
+            if (board[firstBoundPosition[0]][firstBoundPosition[1]] == minPlayer && board[secondBoundPosition[0]][secondBoundPosition[1]] == 0 || board[firstBoundPosition[0]][firstBoundPosition[1]] == 0 && board[secondBoundPosition[0]][secondBoundPosition[1]] == minPlayer) {
+              stabilities.push(UNSTABLE);
+            } else {
+              if (board[firstBoundPosition[0]][firstBoundPosition[1]] == minPlayer && board[secondBoundPosition[0]][secondBoundPosition[1]] == minPlayer) {
+                stabilities.push(STABLE);
+              } else {
+                stabilities.push(SEMISTABLE);
+              }
+            }
+          } else {
+            stabilities.push(STABLE);
+          }
+        });
+        // console.log('maxPlayerStabilities', stabilities)
+        maxPlayerStability += _.min(stabilities);
+      } else {
+        if (board[y][x] === minPlayer) {
+          var _stabilities = [];
+          HALFDIRECTIONS.map(function (direction) {
+            var firstBound = void 0;
+            var secondBound = void 0;
+            var firstBoundPosition = move([y, x], direction);
+            while (firstBoundPosition !== null && board[firstBoundPosition[0]][firstBoundPosition[1]] !== 0 && board[firstBoundPosition[0]][firstBoundPosition[1]] !== maxPlayer) {
+              firstBoundPosition = move(firstBoundPosition, direction);
+            }
+            var secondBoundPosition = move([y, x], oppositeDirection(direction));
+            while (secondBoundPosition !== null && board[secondBoundPosition[0]][secondBoundPosition[1]] !== 0 && board[secondBoundPosition[0]][secondBoundPosition[1]] !== maxPlayer) {
+              secondBoundPosition = move(secondBoundPosition, oppositeDirection(direction));
+            }
+
+            if (firstBoundPosition !== null && secondBoundPosition !== null) {
+              if (board[firstBoundPosition[0]][firstBoundPosition[1]] == maxPlayer && board[secondBoundPosition[0]][secondBoundPosition[1]] == 0 || board[firstBoundPosition[0]][firstBoundPosition[1]] == 0 && board[secondBoundPosition[0]][secondBoundPosition[1]] == maxPlayer) {
+                _stabilities.push(UNSTABLE);
+              } else {
+                if (board[firstBoundPosition[0]][firstBoundPosition[1]] == maxPlayer && board[secondBoundPosition[0]][secondBoundPosition[1]] == maxPlayer) {
+                  _stabilities.push(STABLE);
+                } else {
+                  _stabilities.push(SEMISTABLE);
+                }
+              }
+            } else {
+              _stabilities.push(STABLE);
+            }
+          });
+          // console.log('minPlayerStabilities', stabilities)
+          minPlayerStability += _.min(_stabilities);
+        }
+      }
+    };
+
+    for (var x = 0; x < board[0].length; x++) {
+      _loop4(x);
+    }
+  };
+
+  for (var y = 0; y < board.length; y++) {
+    _loop3(y);
+  }
+  // console.log('maxPlayerStability', maxPlayerStability)
+  // console.log('minPlayerStability', minPlayerStability)
+
+  if (maxPlayerStability + minPlayerStability != 0) {
+    return 100 * (maxPlayerStability - minPlayerStability) / (maxPlayerStability + minPlayerStability);
+  } else {
+    return 0;
+  }
+};
+// console.log('stabilityHeuristic 1', stabilityHeuristic(parseBoard(exampleBoard), 1, 2))
+
+var heuristic = function heuristic(board, maxPlayer, minPlayer) {
+  var parsedBoard = parseBoard(board);
+  return coinParityHeuristic(board, maxPlayer, minPlayer) + mobilityHeuristic(parsedBoard, maxPlayer, minPlayer) + cornersHeuristic(parsedBoard, maxPlayer, minPlayer) + stabilityHeuristic(parsedBoard, maxPlayer, minPlayer);
+};
+
+// 50000 boards in 5.41s ~ Approx 4 levels down considering branching factor of 10 (Regularly the max for Reversi)
+// for(let i=0; i<50000; i++){
+//   heuristic(exampleBoard, 1, 2) 
+// }
+
+// const minimax()
+
+var playMove = function playMove(board, movePosition, player) {
+  // console.log('player', player, 'move', movePosition)
+  // console.log('Input board', board)
+  // Calculate opponent
+  var opponent = player === 1 ? 2 : 1;
+
+  // Place coin
+  board[movePosition[0]][movePosition[1]] = player;
+
+  // Flip coins
+  ALLDIRECTIONS.map(function (direction) {
+    var coinsToBeFlipped = [];
+    var tempPosition = move(movePosition, direction);
+    while (tempPosition !== null && board[tempPosition[0]][tempPosition[1]] !== 0) {
+      if (board[tempPosition[0]][tempPosition[1]] === opponent) {
+        coinsToBeFlipped.push(tempPosition);
+      } else {
+        if (board[tempPosition[0]][tempPosition[1]] === player) {
+          if (coinsToBeFlipped.length !== 0) {
+            coinsToBeFlipped.map(function (position) {
+              board[position[0]][position[1]] = player;
+            });
+            break;
+          }
+        }
+      }
+      tempPosition = move(tempPosition, direction);
+    }
+  });
+
+  // console.log('Output board', board)
+  return board;
+};
+
+var oppositeMinimaxMode = function oppositeMinimaxMode(mode) {
+  if (mode === MAXIMIZER) {
+    return MINIMIZER;
+  } else {
+    return MAXIMIZER;
+  }
+};
+
+// minimaxSignature = (board, maxPlayer, minPlayer, alpha, beta, mode, depth) => (value, move)
+var minimax = function minimax(board, maxPlayer, minPlayer, alpha, beta, mode, depth) {
+  console.log('board\n', board);
+  if (depth !== 0) {
+    var possibleMoves = void 0;
+    if (mode === MAXIMIZER) {
+      possibleMoves = validMoves(board, maxPlayer);
+    } else {
+      possibleMoves = validMoves(board, minPlayer);
+    }
+
+    if (possibleMoves.length === 0) {
+      return minimax(board, maxPlayer, minPlayer, alpha, beta, oppositeMinimaxMode(mode), depth - 1);
+    } else {
+      for (var index in possibleMoves) {
+        // console.log('depth', depth)
+        // console.log('board\n', board)
+        // console.log('possibleMove', possibleMoves[index])
+
+        // DEEPCOPY BOARD
+        var workingBoard = [[0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0]];
+        for (var y = 0; y < board.length; y++) {
+          for (var x = 0; x < board[0].length; x++) {
+            workingBoard[y][x] = board[y][x];
+          }
+        }
+
+        var newBoard = void 0;
+        if (mode === MAXIMIZER) {
+          newBoard = playMove(workingBoard, possibleMoves[index], maxPlayer);
+        } else {
+          newBoard = playMove(workingBoard, possibleMoves[index], minPlayer);
+        }
+        // console.log('innerMinimax', minimax(newBoard, maxPlayer, minPlayer, alpha, beta, oppositeMinimaxMode(mode), depth - 1))
+        minimax(newBoard, maxPlayer, minPlayer, alpha, beta, oppositeMinimaxMode(mode), depth - 1);
+      }
+      // Run minimax for each possibleMoves (Remember to check alpha and beta values for pruning)
+      // Return value and move
+    }
+  } else {
+      // Evaluate heuristic of child nodes (Remember to check alpha and beta values for pruning)
+      // Return value and move
+    }
+};
+
+// if depth === 0 then evaluate heuristic of child nodes else call minimax on child nodes
+
+// console.log('minimax', minimax(parseBoard(exampleBoard), 1, 2, Infinity, -Infinity, MAXIMIZER, 10))
+minimax(parseBoard(exampleBoard), 1, 2, Infinity, -Infinity, MAXIMIZER, 7);
+
+var randomValidMove = exports.randomValidMove = function randomValidMove(board, player) {
+  // console.log('Calling randomValidMove with board', board, 'player', player)
+  var possibleMoves = validMoves(parseBoard(board), player);
+  // console.log('possibleMoves', possibleMoves)
+  return positionToServerInt(possibleMoves[_.random(possibleMoves.length - 1)]);
+};

@@ -1,13 +1,13 @@
 import io from 'socket.io-client'
-import './minimax.js'
+import { randomValidMove } from './minimax.js'
 
-const socket = io('http://localhost:3000')
-// const socket = io('http://192.168.5.162:4000')
+// const socket = io('http://localhost:3000')
+const socket = io('http://192.168.43.108:3000')
 
 socket.on('connect', function(){
   socket.emit('signin', {
     user_name: "chan",
-    tournament_id: 12,
+    tournament_id: 142857,
     user_role: 'player'
   });
 });
@@ -35,25 +35,37 @@ const humanBoard = (board) => {
 }
 
 socket.on('ready', function(data){
-  console.log('On ready data', data)
+  // console.log('On ready data', data)
   const playerID = data.player_turn_id
   // Client is about to move
   console.log("About to move. Board:", humanBoard(data.board))
+  const move = randomValidMove(data.board, data.player_turn_id)
 
   socket.emit('play', {
     player_turn_id: playerID,
-    tournament_id: 12,
+    tournament_id: 142857,
     game_id: data.game_id,
-    movement: randInt(0,63)
+    movement: move
   });
+
+  console.log('Move sent', move)
 });
 
-socket.on('finish', function(data){
-  console.log('On finish')
-  var gameID = data.game_id;
-  var playerTurnID = data.player_turn_id;
-  var winnerTurnID = data.winner_turn_id;
-  var board = data.board;
+socket.on('finish', function(data) {
+  // The game has finished
+  console.log("Game " + data.game_id + " has finished");
+
+  // Inform my students that there is no rematch attribute
+  console.log("Ready to play again!");
+
+  // Start again!
+
+  socket.emit('player_ready', {
+    tournament_id: 142857,
+    game_id: data.game_id,
+    player_turn_id: data.player_turn_id
+  });
+  console.log('Successfully sent player_ready')
 });
 
 console.log('Client running')
