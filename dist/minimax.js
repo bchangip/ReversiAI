@@ -442,12 +442,12 @@ var stabilityHeuristic = function stabilityHeuristic(board, maxPlayer, minPlayer
 // console.log('stabilityHeuristic 1', stabilityHeuristic(parseBoard(exampleBoard), 1, 2))
 
 var heuristic = function heuristic(board, maxPlayer, minPlayer) {
-  var parsedBoard = parseBoard(board);
-  return coinParityHeuristic(board, maxPlayer, minPlayer) + mobilityHeuristic(parsedBoard, maxPlayer, minPlayer) + cornersHeuristic(parsedBoard, maxPlayer, minPlayer) + stabilityHeuristic(parsedBoard, maxPlayer, minPlayer);
+  console.log('heuristic for\n', board);
+  return coinParityHeuristic(_.flatten(board), maxPlayer, minPlayer) + mobilityHeuristic(board, maxPlayer, minPlayer) + cornersHeuristic(board, maxPlayer, minPlayer) + stabilityHeuristic(board, maxPlayer, minPlayer);
 };
 
 // 50000 boards in 5.41s ~ Approx 4 levels down considering branching factor of 10 (Regularly the max for Reversi)
-// for(let i=0; i<50000; i++){
+// for(let i=0; i<100000; i++){
 //   heuristic(exampleBoard, 1, 2) 
 // }
 
@@ -497,7 +497,7 @@ var oppositeMinimaxMode = function oppositeMinimaxMode(mode) {
 
 // minimaxSignature = (board, maxPlayer, minPlayer, alpha, beta, mode, depth) => (value, move)
 var minimax = function minimax(board, maxPlayer, minPlayer, alpha, beta, mode, depth) {
-  console.log('board\n', board);
+  // console.log('board\n', board)
   if (depth !== 0) {
     var possibleMoves = void 0;
     if (mode === MAXIMIZER) {
@@ -509,40 +509,103 @@ var minimax = function minimax(board, maxPlayer, minPlayer, alpha, beta, mode, d
     if (possibleMoves.length === 0) {
       return minimax(board, maxPlayer, minPlayer, alpha, beta, oppositeMinimaxMode(mode), depth - 1);
     } else {
+      // Alpha and beta for childs
+      var _alpha = void 0;
+      var _beta = void 0;
       for (var index in possibleMoves) {
         // console.log('depth', depth)
         // console.log('board\n', board)
         // console.log('possibleMove', possibleMoves[index])
 
-        // DEEPCOPY BOARD
+        // DEEPCOPY BOARD /////////////////////////////////////
         var workingBoard = [[0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0]];
         for (var y = 0; y < board.length; y++) {
           for (var x = 0; x < board[0].length; x++) {
             workingBoard[y][x] = board[y][x];
           }
         }
+        ///////////////////////////////////////////////////////
 
-        var newBoard = void 0;
+        var _newBoard = void 0;
         if (mode === MAXIMIZER) {
-          newBoard = playMove(workingBoard, possibleMoves[index], maxPlayer);
+          _newBoard = playMove(workingBoard, possibleMoves[index], maxPlayer);
         } else {
-          newBoard = playMove(workingBoard, possibleMoves[index], minPlayer);
+          _newBoard = playMove(workingBoard, possibleMoves[index], minPlayer);
         }
-        // console.log('innerMinimax', minimax(newBoard, maxPlayer, minPlayer, alpha, beta, oppositeMinimaxMode(mode), depth - 1))
-        minimax(newBoard, maxPlayer, minPlayer, alpha, beta, oppositeMinimaxMode(mode), depth - 1);
+        // Run minimax on child
+        minimax(_newBoard, maxPlayer, minPlayer, _alpha, _beta, oppositeMinimaxMode(mode), depth - 1);
+        // Compare value to alpha and beta and update them
       }
       // Run minimax for each possibleMoves (Remember to check alpha and beta values for pruning)
       // Return value and move
     }
   } else {
-      // Evaluate heuristic of child nodes (Remember to check alpha and beta values for pruning)
-      // Return value and move
+    // Evaluate heuristic of child nodes (Remember to check alpha and beta values for pruning)
+    var _possibleMoves = void 0;
+    var nodeValue = void 0;
+    var nodeMove = void 0;
+    if (mode === MAXIMIZER) {
+      _possibleMoves = validMoves(board, maxPlayer);
+      nodeValue = -Infinity;
+    } else {
+      nodeValue = Infinity;
+      _possibleMoves = validMoves(board, minPlayer);
     }
+
+    if (_possibleMoves.length === 0) {
+      // If player doesnt have available moves then skip his turn
+      minimax(newBoard, maxPlayer, minPlayer, alpha, beta, oppositeMinimaxMode(mode), depth);
+    } else {
+      var boardHeuristic = void 0;
+      for (var _index in _possibleMoves) {
+        // DEEPCOPY BOARD /////////////////////////////////////
+        var _workingBoard = [[0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0]];
+        for (var _y = 0; _y < board.length; _y++) {
+          for (var _x = 0; _x < board[0].length; _x++) {
+            _workingBoard[_y][_x] = board[_y][_x];
+          }
+        }
+        ///////////////////////////////////////////////////////
+
+        var _newBoard2 = void 0;
+        var heuristicMax = void 0;
+        var heuristicMin = void 0;
+        if (mode === MAXIMIZER) {
+          _newBoard2 = playMove(_workingBoard, _possibleMoves[_index], maxPlayer);
+          heuristicMax = maxPlayer;
+          heuristicMin = minPlayer;
+        } else {
+          _newBoard2 = playMove(_workingBoard, _possibleMoves[_index], minPlayer);
+          heuristicMax = minPlayer;
+          heuristicMin = maxPlayer;
+        }
+
+        boardHeuristic = heuristic(_newBoard2, heuristicMax, heuristicMin);
+        if (mode === MAXIMIZER) {
+          if (boardHeuristic > nodeValue) {
+            nodeValue = boardHeuristic;
+            nodeMove = _possibleMoves[_index];
+          }
+        } else {
+          if (boardHeuristic < nodeValue) {
+            nodeValue = boardHeuristic;
+            nodeMove = _possibleMoves[_index];
+          }
+        }
+        console.log('mode', mode);
+        console.log('boardHeuristic', boardHeuristic);
+        console.log('nodeValue', nodeValue);
+        console.log('nodeMove', nodeMove);
+      }
+    }
+    // Return value and move
+  }
 };
 
 // if depth === 0 then evaluate heuristic of child nodes else call minimax on child nodes
 
 // console.log('minimax', minimax(parseBoard(exampleBoard), 1, 2, Infinity, -Infinity, MAXIMIZER, 10))
+
 // minimax(parseBoard(exampleBoard), 1, 2, Infinity, -Infinity, MAXIMIZER, 8)
 
 var randomValidMove = exports.randomValidMove = function randomValidMove(board, player) {
