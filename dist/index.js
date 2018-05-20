@@ -9,9 +9,10 @@ var _minimax = require('./minimax.js');
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 // const socket = io('http://localhost:3000')
-var socket = (0, _socket2.default)('http://192.168.43.108:3000');
+var socket = (0, _socket2.default)('http://192.168.0.101:4000');
 
 socket.on('connect', function () {
+  console.log('On connect');
   socket.emit('signin', {
     user_name: "chan",
     tournament_id: 142857,

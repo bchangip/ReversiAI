@@ -2,9 +2,10 @@ import io from 'socket.io-client'
 import { randomValidMove } from './minimax.js'
 
 // const socket = io('http://localhost:3000')
-const socket = io('http://192.168.43.108:3000')
+const socket = io('http://192.168.0.101:4000')
 
 socket.on('connect', function(){
+  console.log('On connect')
   socket.emit('signin', {
     user_name: "chan",
     tournament_id: 142857,

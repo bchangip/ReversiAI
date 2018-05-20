@@ -522,7 +522,7 @@ const minimax = (board, maxPlayer, minPlayer, alpha, beta, mode, depth) => {
 // if depth === 0 then evaluate heuristic of child nodes else call minimax on child nodes
 
 // console.log('minimax', minimax(parseBoard(exampleBoard), 1, 2, Infinity, -Infinity, MAXIMIZER, 10))
-minimax(parseBoard(exampleBoard), 1, 2, Infinity, -Infinity, MAXIMIZER, 7)
+// minimax(parseBoard(exampleBoard), 1, 2, Infinity, -Infinity, MAXIMIZER, 8)
 
 export const randomValidMove = (board, player) => {
   // console.log('Calling randomValidMove with board', board, 'player', player)
