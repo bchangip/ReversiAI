@@ -1,13 +1,14 @@
 import io from 'socket.io-client'
-import { randomValidMove } from './minimax.js'
+import { randomValidMove, simpleMinimax } from './minimax.js'
 
-// const socket = io('http://localhost:3000')
-const socket = io('http://192.168.43.108:3000')
+const socket = io('http://localhost:3000')
+// const socket = io('http://192.168.0.107:4000')
 
 socket.on('connect', function(){
+  console.log('On connect')
   socket.emit('signin', {
-    user_name: "chan",
-    tournament_id: 142857,
+    user_name: "chanIA",
+    tournament_id: 12,
     user_role: 'player'
   });
 });
@@ -38,12 +39,13 @@ socket.on('ready', function(data){
   // console.log('On ready data', data)
   const playerID = data.player_turn_id
   // Client is about to move
-  console.log("About to move. Board:", humanBoard(data.board))
-  const move = randomValidMove(data.board, data.player_turn_id)
+  console.log("About to move. Board:", humanBoard(data.board), 'I AM', data.player_turn_id)
+  // const move = randomValidMove(data.board, data.player_turn_id)
+  const move = simpleMinimax(data.board, data.player_turn_id)
 
   socket.emit('play', {
     player_turn_id: playerID,
-    tournament_id: 142857,
+    tournament_id: 12,
     game_id: data.game_id,
     movement: move
   });
